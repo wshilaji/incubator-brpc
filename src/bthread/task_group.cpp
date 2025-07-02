@@ -716,8 +716,10 @@ void TaskGroup::sched_to(TaskGroup** pg, TaskMeta* next_meta, bool cur_ending) {
             LOG(INFO) << "Switch bthread: " << cur_meta->tid << " -> "
                       << next_meta->tid;
         }
-
-        if (cur_meta->stack != NULL) {
+        //cur_meta->stack 大部分情况下start_background 用的attr是null默认pthread stack
+        // 之后release_stack会把stack置为NULL 如果cur_meta要exit会复用之前Meta的stack 即是从ending_sched跳转过来的
+        // 如果只是wait挂起 stack是不释放的 切换过来就要jump_stack 即从其他函数调用的sched_to
+        if (cur_meta->stack != NULL) { //dysNote 这里在外层就已经处理过了 先判断的
             if (next_meta->stack != cur_meta->stack) {
                 CheckBthreadScheSafety();
 #ifdef BRPC_BTHREAD_TRACER

@@ -85,7 +85,20 @@ bthread_jump_fcontext(bthread_fcontext_t * ofc, bthread_fcontext_t nfc,
                       intptr_t vp, bool preserve_fpu = false);
 bthread_fcontext_t BTHREAD_CONTEXT_CALL_CONVENTION
 bthread_make_fcontext(void* sp, size_t size, void (* fn)( intptr_t));
-
+/*
+ret  ret是将当前ss:sp写入cs:ip
+(IP) = (ss)*16 + (sp)  ; 从栈顶读取2字节数据到 IP（指令指针）
+(sp) = (sp) + 2        ; 栈指针增加2字节（释放栈空间）]
+call : call是将当前cs:ip写入栈
+(sp)=(sp)−2             ; 步骤1：栈指针减2，预留2字节空间
+((ss)*16+(sp))=(CS)     ; 步骤2：将 CS 的值写入栈顶
+(sp)=(sp)−2             ; 步骤3：栈指针再减2
+((ss)*16+(sp))=(IP)     ; 步骤4：将 IP 的值写入栈顶
+0x1000: call 0x2000   ; 假设该指令占3字节（机器码：E8 03 00）
+0x1003: mov eax, 1     ; 返回地址是 0x1003
+call 指令从 0x1000 开始，占3字节，因此下一条指令地址是 0x1003。
+压栈的是 0x1003，而非 0x1000。 
+*/
 #ifdef __cplusplus
 };
 #endif

@@ -83,6 +83,10 @@ extern "C"{
 intptr_t BTHREAD_CONTEXT_CALL_CONVENTION
 bthread_jump_fcontext(bthread_fcontext_t * ofc, bthread_fcontext_t nfc,
                       intptr_t vp, bool preserve_fpu = false);
+/*%rdi	第1个参数
+%rsi	第2个参数
+%rdx	第3个参数
+%rcx	第4个参数*/
 bthread_fcontext_t BTHREAD_CONTEXT_CALL_CONVENTION
 bthread_make_fcontext(void* sp, size_t size, void (* fn)( intptr_t));
 /*

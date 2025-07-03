@@ -87,6 +87,12 @@ bthread_jump_fcontext(bthread_fcontext_t * ofc, bthread_fcontext_t nfc,
 %rsi	第2个参数
 %rdx	第3个参数
 %rcx	第4个参数*/
+//注意
+/* 有个括号 () 的区别
+  - 第一步：`movq %rsp, (%rdi)`  -> 将栈指针保存到内存（`*rdi = rsp`），内存位置由 `rdi` 的值指定。
+  - 最后一步：`movq %rdx, %rdi` -> 将 `rdi` 寄存器的值设置为 `rdx`（0）。这并不会影响之前保存到内存中的值，因为内存和寄存器是独立的。
+ 因此，您不需要担心 `from->context` 会变成0，因为 `from->context` 是内存中的一个位置，而我们在最后一步只是修改了 `rdi` 寄存器的值（之前已经使用过它，现在不再需要了）。
+ */
 bthread_fcontext_t BTHREAD_CONTEXT_CALL_CONVENTION
 bthread_make_fcontext(void* sp, size_t size, void (* fn)( intptr_t));
 /*

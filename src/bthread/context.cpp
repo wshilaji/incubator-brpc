@@ -387,22 +387,22 @@ __asm (
 "bthread_make_fcontext:\n"
 "    movq  %rdi, %rax\n"
 "    andq  $-16, %rax\n"
-"    leaq  -0x48(%rax), %rax\n"
-"    movq  %rdx, 0x38(%rax)\n"
-"    stmxcsr  (%rax)\n"
+"    leaq  -0x48(%rax), %rax\n"  // leaq  -0x48(%rax), %rax  ; rax = 0x1000 - 0x48 = 0xFB8
+"    movq  %rdx, 0x38(%rax)\n" // 入口函数地址存到 0xFB8 + 0x38 = 0xFF0
+"    stmxcsr  (%rax)\n"            // MXCSR存到 0xFB8
 "    fnstcw   0x4(%rax)\n"
-"    leaq  finish(%rip), %rcx\n"
-"    movq  %rcx, 0x40(%rax)\n"
+"    leaq  finish(%rip), %rcx\n"    // finish(%rip) 计算的是 finish 标签相对于当前指令指针（RIP）的偏移地址。
+"    movq  %rcx, 0x40(%rax)\n"      // finish地址存到 0xFB8 + 0x40 = 0xFF8
 "    ret \n"
 "finish:\n"
-"    xorq  %rdi, %rdi\n"
-"    call  _exit@PLT\n"
+"    xorq  %rdi, %rdi\n" // ; 将退出码设为 0 (rdi = 0)
+"    call  _exit@PLT\n" // ; 调用 _exit(0) 结束进程
 "    hlt\n"
 ".size bthread_make_fcontext,.-bthread_make_fcontext\n"
 ".section .note.GNU-stack,\"\",%progbits\n"
 ".previous\n"
 );
-
+//防御性编程 如果协程的任务函数（用户函数）意外返回（而不是通过主动切换上下文退出），则会执行 finish。meta栈的释放要在task_runner里面release_last_context释放
 #endif
 
 #if defined(BTHREAD_CONTEXT_PLATFORM_apple_x86_64) && defined(BTHREAD_CONTEXT_COMPILER_gcc)

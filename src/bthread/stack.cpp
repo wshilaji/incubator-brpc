@@ -89,6 +89,7 @@ int allocate_stack_storage(StackStorage* s, int stacksize_in, int guardsize_in) 
             ~PAGESIZE_M1;
 
         const int memsize = stacksize + guardsize;
+        //mmap场景 3：动态内存分配, 替代 malloc 分配大内存块（更灵活，可控制权限）。
         void* const mem = mmap(NULL, memsize, (PROT_READ | PROT_WRITE),
                                (MAP_PRIVATE | MAP_ANONYMOUS), -1, 0);
 

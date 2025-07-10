@@ -89,7 +89,10 @@ class DoublyBufferedData {
     class WrapperTLSGroup;
     typedef int WrapperTLSId;
     typedef std::shared_ptr<Wrapper> WrapperSharedPtr;
-    typedef std::weak_ptr<Wrapper> WrapperWeakPtr;
+    typedef std::weak_ptr<Wrapper> WrapperWeakPtr; //  dysNote weak_ptr可以控制块中除了强引用计数，还维护一个弱引用计数用
+    // shared_ptr和weak_ptr的区别在于，shared_ptr会增加强引用计数，而weak_ptr不会。
+    // weak_ptr会增加弱引用。不增加强引用。当强引用。当强引用计数为 0 时，销毁管理的对象
+    // 当强引用和弱引用都为 0 时，才销毁控制块本身
 public:
     class ScopedPtr {
     friend class DoublyBufferedData;

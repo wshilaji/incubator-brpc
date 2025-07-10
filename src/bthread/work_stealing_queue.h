@@ -94,7 +94,10 @@ public:
         }
         const size_t newb = b - 1;
         _bottom.store(newb, butil::memory_order_relaxed);
-        butil::atomic_thread_fence(butil::memory_order_seq_cst);
+        butil::atomic_thread_fence(butil::memory_order_seq_cst); 
+        // atomic_write_barrier()实现 __asm("":::"memory") 嵌入汇编代码的方式加了一个内存屏障
+        // mfence  ; 全内存屏障（适用于 seq_cst）
+        // __asm volatile ("mfence" ::: "memory")
         t = _top.load(butil::memory_order_relaxed);
         if (t > newb) {
             _bottom.store(b, butil::memory_order_relaxed);

@@ -94,12 +94,17 @@ public:
         }
         const size_t newb = b - 1;
         _bottom.store(newb, butil::memory_order_relaxed);
-        butil::atomic_thread_fence(butil::memory_order_seq_cst); 
+        butil::atomic_thread_fence(butil::memory_order_seq_cst);  // （1）
         // 编译器的优化 指令顺序会变，但是只在单线程的角度去思考。如果多线程指令重拍会有问题
         // atomic_write_barrier()实现 __asm("":::"memory") 嵌入汇编代码的方式加了一个内存屏障
         // mfence  ; 全内存屏障（适用于 seq_cst）
         // __asm volatile ("mfence" ::: "memory")
-        t = _top.load(butil::memory_order_relaxed);
+        //std::atomic_thread_fence(std::memory_order_seq_cst) 对前后的内存操作都有约束，但影响方式不同：
+        //对 fence 之前操作的影响（写操作可见性）确保所有 fence 之前的写入（即使是 relaxed）对其他线程可见 
+        //（通过插入 mfence 等屏障指令，刷新写缓冲区，保证全局可见性）。禁止这些写入被重排到 fence 之后。
+        //对 fence 之后操作的影响（读操作最新值）确保所有 fence 之后的读取能看到其他线程的最新写入 （通过同步其他 CPU 核心的缓存，保证读取时获取最新值）。
+        //禁止这些读取被重排到 fence 之前。 (2) 的读取一定能看到其他线程在 (1) 之前对 _top 的所有修改。
+        t = _top.load(butil::memory_order_relaxed);// (2)
         if (t > newb) {
             _bottom.store(b, butil::memory_order_relaxed);
             return false;

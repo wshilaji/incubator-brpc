@@ -119,11 +119,17 @@ public:
         _bottom.store(b, butil::memory_order_relaxed);
         return popped;
     }
+    // dysNote 这里 一个队列  1|2|3|4|5|6 注意这里Array里面并不会真的pop出去，而是通过push覆盖的逻辑
+    // 所以这里 如果top = 2 , bottom是4的时候， bottom是待插入点。 看代码逻辑 .bottom- 1才是真的最后一个元素
+    // 如果 top = 2 bottom = 3 这个时候 最后一个元素是bottom = 1 是2 。所以top == bottom - 1
+    // 这个时候bottom继续 _bottom.store(b + 1)  是3， 然后2这个top其实Array里是有值的。然后将top +1 = 3 ,至于
+    // 第二个位置等待push将他覆盖
+
 
     // Steal one item from the queue.
     // Returns true on stolen.
     // May run in parallel with push() pop() or another steal().
-    bool steal(T* val) {
+    bool steal(T* val) { // 上面那个pop是从_bottom pop掉。这个是从_top中pop    我靠我还以为是个栈
         size_t t = _top.load(butil::memory_order_acquire);
         size_t b = _bottom.load(butil::memory_order_acquire);
         if (t >= b) {
@@ -142,6 +148,22 @@ public:
                                                butil::memory_order_relaxed));
         return true;
     }
+    /* 为什么不用while 和weak呢 
+   void NamingCache::DelayReleaseNode(Node* node) {
+      auto* head = delayed_release_node_list_.load(std::memory_order_relaxed);
+      node->next = head;
+      while (!delayed_release_node_list_.compare_exchange_weak(
+          node->next, node, std::memory_order_release, std::memory_order_acquire))
+        ;
+        // 如果CAS失败，说明有其他线程在这个位置插入了新的节点 oldValue会变成新的head
+        // Note这种写法是CAS(node->next, node)
+    }
+    void pop(T& result) {
+        node* old_head=head.load();
+        while(!head.compare_exchange_weak(old_head,old_head->next));
+        result=old_head->data;
+    }
+   * */
 
     size_t volatile_size() const {
         const size_t b = _bottom.load(butil::memory_order_relaxed);

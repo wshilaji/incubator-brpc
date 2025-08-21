@@ -38,7 +38,38 @@ public:
             atomic_lck->store(UNLOCK);
             syscall(SYS_futex, &_lck, FUTEX_WAKE, 1, nullptr, nullptr, 0);
         }
-    }
+    }//dysNote如果有一个锁，自己本线程wait()了。 然后其他线程没有wait直接调用 wake()  。岂不是直接释放了 ？
+    //前实现中 wake() 仅检查 fetch_sub(1) != LOCKED 就释放锁，无法区分：
+    //合法释放（锁的持有者调用） 非法释放（其他线程随意调用）
+    // 没有持有者标识：标准锁（如 std::mutex）会记录持有者线程，防止非法释放 非常重要！！
+    /*
+    class Foo {
+        mutex mtx1, mtx2;
+    public:
+        Foo() {
+            mtx1.lock(), mtx2.lock();
+        }
+        void first(function<void()> printFirst) {
+            printFirst();
+            mtx1.unlock();
+        }
+        void second(function<void()> printSecond) {
+            mtx1.lock();// 线程 A 会立即停止执行，并进入等待状态（Waiting State）。它的状态从“运行”或“就绪”变为“阻塞”。操作系统内核会将其从调度器的可运行队列中移出。
+            printSecond();
+            mtx1.unlock();
+            mtx2.unlock();
+        }
+        void third(function<void()> printThird) {
+            mtx2.lock();
+            printThird();
+            mtx2.unlock();
+        }
+    };
+链接：https://leetcode.cn/problems/print-in-order/solutions/445416/c-hu-chi-suo-tiao-jian-bian-liang-xin-hao-liang-yi/
+但实际上这种使用 mutex 的方法是 错误的，因为根据 C++ 标准，在一个线程尝试对一个 mutex 对象进行 unlock 操作时，mutex 对象的所有权必须在这个线程上；
+也就是说，应该 由同一个线程来对一个 mutex 对象进行 lock 和 unlock 操作，否则会产生未定义行为。
+     */
+
 
 private:
     uint32_t _lck = UNLOCK;

@@ -43,28 +43,6 @@ public:
     //合法释放（锁的持有者调用） 非法释放（其他线程随意调用）
     // 没有持有者标识：标准锁（如 std::mutex）会记录持有者线程，防止非法释放 非常重要！！
     /*
-    class Foo {
-        mutex mtx1, mtx2;
-    public:
-        Foo() {
-            mtx1.lock(), mtx2.lock();
-        }
-        void first(function<void()> printFirst) {
-            printFirst();
-            mtx1.unlock();
-        }
-        void second(function<void()> printSecond) {
-            mtx1.lock();// 线程 A 会立即停止执行，并进入等待状态（Waiting State）。它的状态从“运行”或“就绪”变为“阻塞”。操作系统内核会将其从调度器的可运行队列中移出。
-            printSecond();
-            mtx1.unlock();
-            mtx2.unlock();
-        }
-        void third(function<void()> printThird) {
-            mtx2.lock();
-            printThird();
-            mtx2.unlock();
-        }
-    };
 链接：https://leetcode.cn/problems/print-in-order/solutions/445416/c-hu-chi-suo-tiao-jian-bian-liang-xin-hao-liang-yi/
 但实际上这种使用 mutex 的方法是 错误的，因为根据 C++ 标准，在一个线程尝试对一个 mutex 对象进行 unlock 操作时，mutex 对象的所有权必须在这个线程上；
 也就是说，应该 由同一个线程来对一个 mutex 对象进行 lock 和 unlock 操作，否则会产生未定义行为。
@@ -80,7 +58,6 @@ private:
 在进入内核前，futex 系统调用会先进行 用户态的原子检查：
 if (*uaddr != val) {  // 这里检查 _lck 是否仍等于 WAITED
     return EAGAIN;    // 如果不等于，直接返回失败（避免无效等待）
-}
 如果 _lck 的值 不等于 WAITED，系统调用会 立即返回 EAGAIN，线程不会阻塞。
 这是 futex 的 关键优化：避免不必要的内核切换。
 2. 进入内核阻塞

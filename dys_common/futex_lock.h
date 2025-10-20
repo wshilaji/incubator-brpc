@@ -22,7 +22,7 @@ public:
                 if (expect_val == WAITED
                         || atomic_lck->compare_exchange_strong(expect_val, WAITED)) {
                     syscall(SYS_futex, &_lck, FUTEX_WAIT, WAITED, nullptr, nullptr, 0);
-                }
+                } // 如果状态是 LOCKED，尝试设置为 WAITED，第一个等待线程 ， 后续等待线程：看到状态已经是 WAITED，直接进入等待
 
                 expect_val = UNLOCK;
                 if (atomic_lck->compare_exchange_strong(expect_val, WAITED)) {

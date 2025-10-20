@@ -84,7 +84,7 @@ struct ButexWaiter : public butil::LinkNode<ButexWaiter> {
 
     // Erasing node from middle of LinkedList is thread-unsafe, we need
     // to hold its container's lock.
-    butil::atomic<Butex*> container;
+    butil::atomic<Butex*> container;   //dysNote 该waiter所在的butex
 };
 
 // non_pthread_task allocates this structure on stack and queue it in
@@ -115,7 +115,7 @@ struct BAIDU_CACHELINE_ALIGNMENT Butex {
     ~Butex() {}
 
     butil::atomic<int> value;
-    ButexWaiterList waiters;
+    ButexWaiterList waiters; // dysNote list of ButexWaiter
     FastPthreadMutex waiter_lock;
 };
 
@@ -133,7 +133,7 @@ static void wakeup_pthread(ButexPthreadWaiter* pw) {
 }
 
 bool erase_from_butex(ButexWaiter*, bool, WaiterState);
-
+// dysNote 不是bthread吗。怎么还调用了pthread的阻塞，
 int wait_pthread(ButexPthreadWaiter& pw, const timespec* abstime) {
     timespec* ptimeout = NULL;
     timespec timeout;
@@ -147,7 +147,8 @@ int wait_pthread(ButexPthreadWaiter& pw, const timespec* abstime) {
             ptimeout = &timeout;
         }
         if (timeout_us > MIN_SLEEP_US || abstime == NULL) {
-            rc = futex_wait_private(&pw.sig, PTHREAD_NOT_SIGNALLED, ptimeout);
+            // 如果 futex_wait_private 调用成功，线程就会阻塞在这一行，直到被唤醒
+            rc = futex_wait_private(&pw.sig, PTHREAD_NOT_SIGNALLED, ptimeout); // dysNote PTHREAD_NOT_SIGNALLED 是一个状态标志，表示线程尚未被通知或唤醒。
             if (PTHREAD_NOT_SIGNALLED != pw.sig.load(butil::memory_order_acquire)) {
                 // If `sig' is changed, wakeup_pthread() must be called and `pw'
                 // is already removed from the butex.
@@ -263,6 +264,7 @@ void butex_destroy(void* butex) {
     if (!butex) {
         return;
     }
+    // dysNote 倒推类的起始地址 传过来的只是类Butex里面的一个atomic<int>成员value
     Butex* b = static_cast<Butex*>(
         container_of(static_cast<butil::atomic<int>*>(butex), Butex, value));
     butil::return_object(b);

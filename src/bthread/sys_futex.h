@@ -40,6 +40,8 @@ inline int futex_wait_private(
     void* addr1, int expected, const timespec* timeout) {
     return syscall(SYS_futex, addr1, (FUTEX_WAIT | FUTEX_PRIVATE_FLAG),
                    expected, timeout, NULL, 0);
+                   //只有当 *addr1 == expected 时，线程才会进入等待状态
+//原子性检查：内核会原子性地检查 *addr1 == expected 条件
 }
 
 inline int futex_wake_private(void* addr1, int nwake) {

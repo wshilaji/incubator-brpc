@@ -81,6 +81,8 @@ public:
         _bottom.store(b + 1, butil::memory_order_release);
         return true;
     }
+     // capacity = 2的n次方。 mask =capacity -1 
+     // p %  capacity <==> p & mask
 
     // Pop an item from the queue.
     // Returns true on popped and the item is written to `val'.

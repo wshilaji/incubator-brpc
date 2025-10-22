@@ -2,9 +2,13 @@
 #include <list>
 #include <unordered_set>
 #include <sys/prctl.h>
-#include "lru_hashmap.h"
+#include "base/lru_hashmap.h"
+
+
 
 namespace base {
+DEFINE_uint32(lru_evict_timestamp, 60*1000*1000, "lru_evict_timestamp");
+
 
 struct CacheRegistryImpl {
   static CacheRegistryImpl* instance() {
@@ -48,6 +52,7 @@ struct CacheRegistryImpl {
  private:
   static const size_t EVICT_CYCLE = 60*1000*1000;
   void evict_main() {
+    
     ::prctl(PR_SET_NAME, "LruEvict");
     LOG(INFO) << "LruEvict thread start";
     while (!_stop) {
@@ -82,8 +87,8 @@ struct CacheRegistryImpl {
         }
 
         ts = get_usec_ts() - ts;
-        if (ts < EVICT_CYCLE) {
-          ts = EVICT_CYCLE - ts;
+        if (ts < FLAGS_lru_evict_timestamp) {
+          ts = FLAGS_lru_evict_timestamp - ts;
           while (!_stop && ts > 0) {
             auto s = std::min(ts, uint64_t(100*1000));
             ts -= s;

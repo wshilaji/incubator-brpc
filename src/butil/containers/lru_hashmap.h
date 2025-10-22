@@ -14,12 +14,14 @@
 #include <vector>
 #include <unordered_map>
 
-#include <butil/time.h>
-
+#include "butil/logging.h"
 #include "butil/object_pool.h"
+#include "butil/time.h"
 #include "bvar/bvar.h"
+#include "gflags/gflags.h"
 
 namespace base {
+DECLARE_uint32(lru_evict_timestamp);
 
 static inline uint64_t get_usec_ts() {
     struct timeval tp;
@@ -59,13 +61,11 @@ inline void return_object(T* obj) {
 }
 
 struct CacheOption {
-  CacheOption(const std::string& name,
-              uint32_t capacity,
-              uint64_t ttl):
-      name(name),
-      capacity(capacity),
-      ttl(ttl) {
-    LOG_ASSERT(ttl > 3) << "Invalid ttl for cache:" << name;
+  CacheOption(const std::string &name, uint32_t capacity, uint64_t ttl, bool strict = false)
+      : name(name), capacity(capacity), ttl(ttl), strict_evict(strict) {
+    if (ttl <= 3) {
+      LOG(FATAL) << "Invalid ttl" << ttl << "for cache:" << name;
+    }
   }
 
   CacheOption() = delete;
@@ -75,6 +75,7 @@ struct CacheOption {
   uint64_t ttl; // seconds
   uint32_t clear_batch;
   uint32_t counter = 0;
+  bool strict_evict = false;
 };
 
 // NOTE: use LruHashMapManager to new/delte LruHashMap instance
@@ -454,8 +455,8 @@ void LruHashMap<K, V, Hasher, Deleter>::EvictNodes() {
   evicted_nodes_.clear();
 
   size_t node_count = node_count_.load(std::memory_order_relaxed);
-  DLOG(INFO) << "counter:" << _option.counter << " LruHashMap:" << _option.name
-             << " evict node_count:" << node_count << " cache_size:" << cache_size_;
+  // DLOG(INFO) << "counter:" << _option.counter << " LruHashMap:" << _option.name
+  //            << " evict node_count:" << node_count << " cache_size:" << cache_size_;
 
   // use a two pass method
   // 1st pass, find the evicted timestamp
@@ -476,11 +477,15 @@ void LruHashMap<K, V, Hasher, Deleter>::EvictNodes() {
   std::sort(nodes_ts.begin(), nodes_ts.end());
 
   size_t evict_ts = 10;   // erase expired node
+  if (_option.strict_evict) {
+    evict_ts = get_usec_ts() -  ttl_us_;
+  }
   int evict_count = -1;
   size_t traversed_node_count = nodes_ts.size();
   if (traversed_node_count > cache_size_) {
     evict_count = traversed_node_count - cache_size_;
-    evict_ts = nodes_ts[evict_count];
+    evict_ts = std::max(evict_ts, nodes_ts[evict_count]);
+    //evict_ts = nodes_ts[evict_count];
   }
   else {
     if (nodes_ts[0] > evict_ts) {
@@ -488,9 +493,9 @@ void LruHashMap<K, V, Hasher, Deleter>::EvictNodes() {
     }
     // else exist expired node
   }
-  DLOG(INFO) << "counter:" << _option.counter << " LruHashMap:" << _option.name
-             << " evict ts:" << evict_ts << " begin:" << nodes_ts[0]
-             << " end:" << nodes_ts.back() << " count:" << evict_count;
+  // DLOG(INFO) << "counter:" << _option.counter << " LruHashMap:" << _option.name
+  //            << " evict ts:" << evict_ts << " begin:" << nodes_ts[0]
+  //            << " end:" << nodes_ts.back() << " count:" << evict_count;
 
   // 2nd pass, evict the node those ts < evict_ts
   for (auto & bucket : buckets_) {

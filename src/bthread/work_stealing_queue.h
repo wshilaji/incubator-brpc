@@ -27,7 +27,9 @@
 #include "butil/logging.h"
 
 namespace bthread {
-
+    //CAS 失败时，`expected` 会被更新为当前值   CAS(expected, new)
+    // ABA问题。 CAS 只是查看旧值是否一样 若 A转帐给B. A账户上有100，这时候在ATM1上卡了。去ATM2上转帐。
+    // CAS(100, 0) ATM2转帐成功，A变成0， 之后C给转帐100成功 。这个时候ATM1不卡了。执行了CAS(100,0) ATM1转帐成功。然后C问A 看到钱了吗。
 template <typename T>
 class WorkStealingQueue {
 public:
@@ -75,7 +77,7 @@ public:
         if (b >= t + _capacity) { // Full queue.
             return false;
         }
-        _buffer[b & (_capacity - 1)] = x;
+        _buffer[b & (_capacity - 1)] = x; // 其实一开始声明，BufferMask =  _capacity - 1 然后这里 b & BufferMask 更好。
         _bottom.store(b + 1, butil::memory_order_release);
         return true;
     }

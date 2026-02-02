@@ -204,29 +204,42 @@ x = 42 或者x.store(42, std::memory_order_relaxed);  // (1) // 或者x = 1;
 y.store(1, std::memory_order_release);  // (2)
 // 线程 B
 while (y.load(std::memory_order_acquire) != 1) {}  // (3)
-assert(x==42);    // (4) ? 问题qusetion
+assert(x==42);    // (4) ? 问题。一定成立
 线程 A 的执行：
-(1) x.store(1) 执行，但 结果可能还在 CPU 缓存中（未刷到主存）。
+(1) x = 42 该 cache line 变为 Modified 状态。  执行，但 结果可能还在 CPU 缓存中（未刷到主存）。
 (2) y.store(1) 执行，并且由于是 release，强制将之前的缓存刷新到主存（包括 x = 1）。
-但 缓存刷新是异步的！y = 1 可能比 x = 1 先到达线程 B 的 CPU。
-线程 B 的执行：
-(3) 看到 y == 1（因为 y 的更新已全局可见）。
-(4) 读取 x 时，可能 x = 1 的更新还未到达线程 B 的缓存，所以读到旧值 0。
-relaxed也可能更新可能还在 当前核心的写缓冲区，未被其他核心看到。长时间停留在存储缓冲区或核心本地缓存
-如果是原子变量release会强制将当前线程的缓存刷新到主内存（x=42也会刷到主内存, 使之前的写入对其他线程可见）。
-但 不保证其他线程立即看到非UB（x=42) 操作（可能需要缓存一致性协议同步）。
-用atomic_thread_fence可以将所有包括原子和非原子都刷入
 
-那为什么有的里面说 assert(x==42);永远成功呢。标准答案是 在x86环境是对的。但是在非x86体系下比如ARM架构，可能会有问题
-因为x86 ; x86汇编示例   x86的mov相当于自带release
-mov [data], 42    ; 非原子存储
-mov [flag], 1     ; release存储（实际是普通mov + 隐式屏障）
-为什么x86上"看似有效"
-TSO内存模型：
-x86的存储缓冲区会按序提交. 普通存储和原子存储使用相同的提交机制存储转发：当CPU执行 release 存储时，会等待前面所有存储完成
-包括非原子变量的存储; 现代x86 CPU内部处理mfence的简化流程
-1. 排空存储缓冲区(stores buffer)
-2. 失效其他核心的对应缓存行
-3. 等待所有ACK响应
-4. 继续后续指令
+x86 (TSO)：
+release store 实际上就是普通的 mov [mem], value（x86 的 store 天然有 release 语义）
+acquire load 实际上就是普通的 mov reg, [mem]
+不需要额外屏障指令，因为 x86 的 TSO 保证：
+Store 按程序序全局可见
+单个内存位置的 Load 不会重排序
+assembly
+; 线程A
+mov [x], 42     ; 对 x86 来说，这已经保证对其他 CPU 最终可见
+mov [y], 1      ; release store，但 x86 上就是普通 mov
+; 线程B
+retry:
+mov eax, [y]    ; acquire load，但 x86 上就是普通 mov
+cmp eax, 1
+jne retry
+mov ebx, [x]    ; 保证看到 42（硬件保证）
+
+ARM/PowerPC (弱内存模型)：
+需要显式屏障指令
+release store 需要生成 dmb（或等效）之前的屏障
+acquire load 需要生成 dmb（或等效）之后的屏障
+; 线程A（ARM）
+mov w0, #42
+str w0, [x]     ; 非原子存储
+dmb ish         ; 确保之前的所有存储对之后可见
+mov w1, #1
+str w1, [y]     ; release store
+; 线程B（ARM）
+retry:
+ldar w2, [y]    ; acquire load（ldar 自带加载获取语义）
+cmp w2, #1
+b.ne retry
+ldr w3, [x]     ; 保证看到 42（因为 dmb 和 ldar 的同步）
  * */

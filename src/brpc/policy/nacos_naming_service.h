@@ -31,6 +31,8 @@ namespace brpc {
 namespace policy {
 
 // Acquire server list from nacos
+// dysNote Nacos是阿里开源的 Nacos（动态服务发现、配置管理和服务管理平台
+// 与 gRPC 集成通过 Nacos 发现 gRPC 服务端点
 class NacosNamingService : public PeriodicNamingService {
 public:
     NacosNamingService();

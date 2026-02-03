@@ -208,6 +208,11 @@ assert(x==42);    // (4) ? 问题。一定成立
 线程 A 的执行：
 (1) x = 42 该 cache line 变为 Modified 状态。  执行，但 结果可能还在 CPU 缓存中（未刷到主存）。
 (2) y.store(1) 执行，并且由于是 release，强制将之前的缓存刷新到主存（包括 x = 1）。
+、
+其实 x是普通变量或者 relaxed, 在执行y.store(1, std::memory_order_release) 本身 并不会“强制刷新”或“推送”非原子变量 x = 42 到其他 CPU 的缓存。
+硬件层面（如 MESI），在 x86 等强内存模型架构上，普通写（如 x = 42）或者 relaxed 最终会通过缓存一致性协议（如 MESI）传播到其他核。
+但传播需要时间，且没有同步机制时，其他线程可能读到旧值。
+
 
 x86 (TSO)：
 release store 实际上就是普通的 mov [mem], value（x86 的 store 天然有 release 语义）

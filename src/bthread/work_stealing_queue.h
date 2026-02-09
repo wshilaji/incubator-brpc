@@ -27,7 +27,7 @@
 #include "butil/logging.h"
 
 namespace bthread {
-    //CAS 失败时，`expected` 会被更新为当前值   CAS(expected, new)
+    //dysNote CAS 失败时，`expected` 会被更新为当前值   CAS(expected, new)
     // ABA问题。 CAS 只是查看旧值是否一样 若 A转帐给B. A账户上有100，这时候在ATM1上卡了。去ATM2上转帐。
     // CAS(100, 0) ATM2转帐成功，A变成0， 之后C给转帐100成功 。这个时候ATM1不卡了。执行了CAS(100,0) ATM1转帐成功。然后C问A 看到钱了吗。
 template <typename T>
@@ -99,7 +99,7 @@ public:
         const size_t newb = b - 1;
         _bottom.store(newb, butil::memory_order_relaxed);
         butil::atomic_thread_fence(butil::memory_order_seq_cst);  // （1）
-        // 编译器的优化 指令顺序会变，但是只在单线程的角度去思考。如果多线程指令重拍会有问题
+        //dysNote  编译器的优化 指令顺序会变，但是只在单线程的角度去思考。如果多线程指令重拍会有问题
         // atomic_write_barrier()实现 __asm("":::"memory") 嵌入汇编代码的方式加了一个内存屏障
         // mfence  ; 全内存屏障（适用于 seq_cst）
         // __asm volatile ("mfence" ::: "memory")
@@ -152,13 +152,14 @@ public:
                                                butil::memory_order_relaxed));
         return true;
     }
-    /* 为什么不用while 和weak呢 
+    /* dysNote 为什么不用while 和weak呢 
    void NamingCache::DelayReleaseNode(Node* node) {
       auto* head = delayed_release_node_list_.load(std::memory_order_relaxed);
       node->next = head;
       while (!delayed_release_node_list_.compare_exchange_weak(
           node->next, node, std::memory_order_release, std::memory_order_acquire))
         ;
+        delayed_release_node_list_ 就是头结点，如果成功 new是node，否则 node->next = expected
         // 如果CAS失败，说明有其他线程在这个位置插入了新的节点 oldValue会变成新的head
         // Note这种写法是CAS(node->next, node)
     }

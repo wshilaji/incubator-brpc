@@ -29,6 +29,8 @@ main :
            main thread  prom.set_value (10) 
            value: 10
 
+std::promise 一直不调用 set_value()（或 set_exception()），那么在子线程中调用 fut.get() 会一直阻塞，直到 promise 被设置值或异常
+
 // 子线程通知主线程
 func:  asyncTask(std::promise<int> &&p) {
     std::this_thread::sleep_for(std::chrono::seconds(2)); // 模拟长时间运行的任务
